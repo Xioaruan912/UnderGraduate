@@ -1,0 +1,189 @@
+﻿<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Language" content="zh-cn">
+  <title>Markdown 层级生成器（顺序构建版·可编辑行）</title>
+  <style>
+    body { font-family: "Microsoft Yahei", Consolas, monospace; margin: 20px; background: #fafafa; color: #333; }
+    h2 { color: #444; margin-bottom: 8px; }
+    .hint { margin: 6px 0 14px; color: #666; font-size: 13px; }
+    .container { display: flex; gap: 10px; }
+    .box { flex: 1; display: flex; flex-direction: column; }
+    label { font-weight: bold; margin-bottom: 5px; }
+    textarea {
+      flex: 1; padding: 10px; border: 2px solid #ccc; border-radius: 8px;
+      resize: none; height: 120px; transition: border-color 0.2s, background-color 0.2s;
+    }
+    textarea:focus { border-color: #007bff; background-color: #f0f8ff; outline: none; }
+    .buttons { margin-top: 10px; display: flex; gap: 8px; }
+    button {
+      padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; color: #fff; background: #007bff;
+    }
+    button.secondary { background: #6c757d; }
+    button.warn { background: #dc3545; }
+    button:hover { filter: brightness(0.95); }
+    pre {
+      background: #222; color: #0f0; padding: 15px; border-radius: 8px;
+      white-space: pre-wrap; min-height: 180px; font-size: 14px; line-height: 1.4; overflow: auto;
+      font-family: Consolas, "Microsoft Yahei", monospace;
+      margin-top: 10px;
+    }
+    .badge { display:inline-block; background:#eee; color:#333; padding:2px 6px; border-radius:6px; font-size:12px; margin-left:6px;}
+  </style>
+</head>
+<body>
+  <h2>📘 Markdown 层级生成器（顺序构建版·可编辑行）<span class="badge">支持同一行实时编辑</span></h2>
+  <div class="hint">规则：每个输入框一行一个条目；只在“末尾追加”新行会新增节点；同一行后续编辑会实时更新文本。若需删除，请用「撤销一步」或「重置」。</div>
+
+  <div class="container">
+    <div class="box">
+      <label>- # 一级</label>
+      <textarea id="lvl1" placeholder="例：齐次线性方程组"></textarea>
+    </div>
+    <div class="box">
+      <label>- ## 二级</label>
+      <textarea id="lvl2" placeholder="例：向量形式&#10;有解条件"></textarea>
+    </div>
+    <div class="box">
+      <label>- ### 三级</label>
+      <textarea id="lvl3" placeholder="例：唯一零解&#10;非零解"></textarea>
+    </div>
+    <div class="box">
+      <label>- #### 四级</label>
+      <textarea id="lvl4" placeholder="例：某个子结论"></textarea>
+    </div>
+  </div>
+
+  <div class="buttons">
+    <button class="secondary" id="undoBtn">↩ 撤销一步</button>
+    <button class="warn" id="resetBtn">🗑 重置</button>
+    <button id="copyBtn">📋 复制结果</button>
+  </div>
+
+  <h3>输出结果：</h3>
+  <pre id="output"></pre>
+
+  <script>
+    const header =
+`🟨 不够熟悉  ✅ 熟悉  ❌ 忘记  🟨-✅ 忘记快到记得了
+
+## 大问题
+`;
+
+    // 事件顺序：存放每个“行”的唯一 id（按创建时间）
+    const eventOrder = []; // [id1, id2, ...]
+    // 行仓库：id -> { level, text }
+    const store = Object.create(null);
+    // 各层当前行列表：数组元素为 { id, text }
+    const linesByLevel = { 1: [], 2: [], 3: [], 4: [] };
+
+    const areas = {
+      1: document.getElementById('lvl1'),
+      2: document.getElementById('lvl2'),
+      3: document.getElementById('lvl3'),
+      4: document.getElementById('lvl4'),
+    };
+
+    function makeId(level){
+      return `${level}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function render() {
+      let out = header;
+      eventOrder.forEach(id => {
+        const node = store[id];
+        if (!node) return;
+        const { level, text } = node;
+        if (!text.trim()) return; // 空的不输出
+        if (level === 1) out += `- # ${text} ❌\n`;
+        else if (level === 2) out += `  - ## ${text} ❌\n`;
+        else if (level === 3) out += `    - ### ${text} ❌\n`;
+        else if (level === 4) out += `      - #### ${text} ❌\n`;
+      });
+      document.getElementById('output').textContent = out;
+    }
+
+    function onInput(level) {
+      const ta = areas[level];
+      const newLines = ta.value.replace(/\r/g,'').split('\n').filter(s => s !== '');
+      const cur = linesByLevel[level]; // [{id,text}, ...]
+
+      if (newLines.length < cur.length) {
+        // 暂不支持中间/任意删除；请用撤销或重置
+        // 回滚文本框到当前快照
+        ta.value = cur.map(x => x.text).join('\n');
+        return;
+      }
+
+      // 更新已有行的文本（含同一行从 s -> ssss）
+      const common = Math.min(cur.length, newLines.length);
+      for (let i=0; i<common; i++) {
+        const newText = newLines[i];
+        if (cur[i].text !== newText) {
+          cur[i].text = newText;
+          const id = cur[i].id;
+          if (store[id]) store[id].text = newText;
+        }
+      }
+
+      // 追加新行（只处理末尾新增）
+      if (newLines.length > cur.length) {
+        const added = newLines.slice(cur.length);
+        added.forEach(text => {
+          const id = makeId(level);
+          const node = { level, text };
+          store[id] = node;
+          eventOrder.push(id);
+          cur.push({ id, text });
+        });
+      }
+
+      render();
+    }
+
+    // 绑定输入事件
+    [1,2,3,4].forEach(level => {
+      areas[level].addEventListener('input', () => onInput(level));
+    });
+
+    // 撤销一步：撤销最后创建的一条行
+    document.getElementById('undoBtn').addEventListener('click', () => {
+      if (!eventOrder.length) return;
+      const id = eventOrder.pop();
+      const node = store[id];
+      if (node) {
+        const level = node.level;
+        // 从该层的行数组末尾删除一个匹配 id 的行
+        const arr = linesByLevel[level];
+        for (let i = arr.length - 1; i >= 0; i--) {
+          if (arr[i].id === id) { arr.splice(i, 1); break; }
+        }
+        delete store[id];
+        // 同步文本框
+        areas[level].value = linesByLevel[level].map(x => x.text).join('\n');
+      }
+      render();
+    });
+
+    // 重置
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      eventOrder.length = 0;
+      [1,2,3,4].forEach(l => linesByLevel[l] = []);
+      for (const k in store) delete store[k];
+      Object.values(areas).forEach(ta => ta.value = '');
+      render();
+    });
+
+    // 复制
+    document.getElementById('copyBtn').addEventListener('click', () => {
+      const text = document.getElementById('output').textContent;
+      navigator.clipboard.writeText(text).then(() => alert('✅ 已复制到剪贴板！'));
+    });
+
+    // 初始渲染
+    render();
+  </script>
+</body>
+</html>
