@@ -34,8 +34,8 @@
   </style>
 </head>
 <body>
-  <h2>📘 Markdown 层级生成器（顺序构建版·可编辑行）<span class="badge">支持同一行实时编辑</span></h2>
-  <div class="hint">规则：每个输入框一行一个条目；只在“末尾追加”新行会新增节点；同一行后续编辑会实时更新文本。若需删除，请用「撤销一步」或「重置」。</div>
+  <h2>📘 Markdown 层级生成器（顺序构建版·可编辑行）<span class="badge">支持同一行实时编辑 + 自动保存</span></h2>
+  <div class="hint">规则：每个输入框一行一个条目；只在“末尾追加”新行会新增节点；同一行后续编辑会实时更新文本。支持自动保存，刷新后可恢复。</div>
 
   <div class="container">
     <div class="box">
@@ -72,12 +72,9 @@
 ## 大问题
 `;
 
-    // 事件顺序：存放每个“行”的唯一 id（按创建时间）
-    const eventOrder = []; // [id1, id2, ...]
-    // 行仓库：id -> { level, text }
-    const store = Object.create(null);
-    // 各层当前行列表：数组元素为 { id, text }
-    const linesByLevel = { 1: [], 2: [], 3: [], 4: [] };
+    let eventOrder = [];
+    let store = Object.create(null);
+    let linesByLevel = { 1: [], 2: [], 3: [], 4: [] };
 
     const areas = {
       1: document.getElementById('lvl1'),
@@ -96,30 +93,26 @@
         const node = store[id];
         if (!node) return;
         const { level, text } = node;
-        if (!text.trim()) return; // 空的不输出
+        if (!text.trim()) return;
         if (level === 1) out += `- # ${text} ❌\n`;
         else if (level === 2) out += `  - ## ${text} ❌\n`;
         else if (level === 3) out += `    - ### ${text} ❌\n`;
         else if (level === 4) out += `      - #### ${text} ❌\n`;
       });
       document.getElementById('output').textContent = out;
+
+      saveToLocal();
     }
 
     function onInput(level) {
       const ta = areas[level];
       const newLines = ta.value.replace(/\r/g,'').split('\n').filter(s => s !== '');
-      const cur = linesByLevel[level]; // [{id,text}, ...]
+      const cur = linesByLevel[level];
 
-      if (newLines.length < cur.length) {
-        // 暂不支持中间/任意删除；请用撤销或重置
-        // 回滚文本框到当前快照
-        ta.value = cur.map(x => x.text).join('\n');
-        return;
-      }
+      const minLen = Math.min(cur.length, newLines.length);
 
-      // 更新已有行的文本（含同一行从 s -> ssss）
-      const common = Math.min(cur.length, newLines.length);
-      for (let i=0; i<common; i++) {
+      // 更新已有行
+      for (let i=0; i<minLen; i++) {
         const newText = newLines[i];
         if (cur[i].text !== newText) {
           cur[i].text = newText;
@@ -128,7 +121,18 @@
         }
       }
 
-      // 追加新行（只处理末尾新增）
+      // 删除多余行
+      if (newLines.length < cur.length) {
+        const removed = cur.slice(newLines.length);
+        removed.forEach(item => {
+          delete store[item.id];
+          const idx = eventOrder.indexOf(item.id);
+          if (idx >= 0) eventOrder.splice(idx, 1);
+        });
+        cur.length = newLines.length;
+      }
+
+      // 追加新行
       if (newLines.length > cur.length) {
         const added = newLines.slice(cur.length);
         added.forEach(text => {
@@ -143,42 +147,46 @@
       render();
     }
 
-    // 绑定输入事件
+    // 去抖，避免 iPad 双输入
+    function debounce(fn, delay=50) {
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), delay);
+      };
+    }
+
     [1,2,3,4].forEach(level => {
-      areas[level].addEventListener('input', () => onInput(level));
+      areas[level].addEventListener('input', debounce(() => onInput(level), 50));
     });
 
-    // 撤销一步：撤销最后创建的一条行
+    // 撤销一步
     document.getElementById('undoBtn').addEventListener('click', () => {
       if (!eventOrder.length) return;
       const id = eventOrder.pop();
       const node = store[id];
       if (node) {
         const level = node.level;
-        // 从该层的行数组末尾删除一个匹配 id 的行
         const arr = linesByLevel[level];
         for (let i = arr.length - 1; i >= 0; i--) {
           if (arr[i].id === id) { arr.splice(i, 1); break; }
         }
         delete store[id];
-        // 同步文本框
         areas[level].value = linesByLevel[level].map(x => x.text).join('\n');
       }
       render();
     });
 
     // 重置
-	document.getElementById('resetBtn').addEventListener('click', () => {
-	  if (!confirm("⚠️ 高危操作：此操作会清空所有输入和结果，确定要继续吗？")) {
-		return; // 用户点取消
-	  }
-	  eventOrder.length = 0;
-	  [1,2,3,4].forEach(l => linesByLevel[l] = []);
-	  for (const k in store) delete store[k];
-	  Object.values(areas).forEach(ta => ta.value = '');
-	  render();
-	});
-
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      if (!confirm("⚠️ 高危操作：此操作会清空所有输入和结果，确定要继续吗？")) return;
+      eventOrder = [];
+      linesByLevel = { 1: [], 2: [], 3: [], 4: [] };
+      store = Object.create(null);
+      Object.values(areas).forEach(ta => ta.value = '');
+      localStorage.removeItem("mdGeneratorData");
+      render();
+    });
 
     // 复制
     document.getElementById('copyBtn').addEventListener('click', () => {
@@ -186,7 +194,44 @@
       navigator.clipboard.writeText(text).then(() => alert('✅ 已复制到剪贴板！'));
     });
 
-    // 初始渲染
+    // 刷新提醒
+    window.addEventListener('beforeunload', (e) => {
+      const hasContent = eventOrder.length > 0 || Object.values(areas).some(ta => ta.value.trim() !== '');
+      if (hasContent) {
+        e.preventDefault();
+        e.returnValue = "⚠️ 你有未保存的内容，确定要离开吗？";
+      }
+    });
+
+    // 保存到 localStorage
+    function saveToLocal() {
+      const data = {
+        eventOrder,
+        store,
+        linesByLevel,
+        textareas: Object.fromEntries(Object.entries(areas).map(([k, ta]) => [k, ta.value]))
+      };
+      localStorage.setItem("mdGeneratorData", JSON.stringify(data));
+    }
+
+    // 从 localStorage 恢复
+    function loadFromLocal() {
+      const raw = localStorage.getItem("mdGeneratorData");
+      if (!raw) return;
+      try {
+        const data = JSON.parse(raw);
+        eventOrder = data.eventOrder || [];
+        store = data.store || Object.create(null);
+        linesByLevel = data.linesByLevel || {1:[],2:[],3:[],4:[]};
+        Object.entries(data.textareas || {}).forEach(([k,v]) => {
+          if (areas[k]) areas[k].value = v;
+        });
+      } catch(e) {
+        console.warn("恢复失败:", e);
+      }
+    }
+
+    loadFromLocal();
     render();
   </script>
 </body>
