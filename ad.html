@@ -9,15 +9,21 @@
     body { font-family: "Microsoft Yahei", Consolas, monospace; margin: 20px; background: #fafafa; color: #333; }
     h2 { color: #444; margin-bottom: 8px; }
     .hint { margin: 6px 0 14px; color: #666; font-size: 13px; }
-    .container { display: flex; gap: 10px; }
-    .box { flex: 1; display: flex; flex-direction: column; }
+    .container { display: flex; gap: 10px; align-items: flex-start; } /* 关键：不把列拉到同高 */
+    .box { flex: 1 1 0; display: flex; flex-direction: column; }
     label { font-weight: bold; margin-bottom: 5px; }
     textarea {
-      flex: 1; padding: 10px; border: 2px solid #ccc; border-radius: 8px;
-      resize: none; height: 120px; transition: border-color 0.2s, background-color 0.2s;
+      /* 关键：不要 flex:1，让高度由内容决定 */
+      display: block; width: 100%;
+      padding: 10px; border: 2px solid #ccc; border-radius: 8px;
+      resize: none; height: auto; min-height: 120px;
+      transition: border-color 0.2s, background-color 0.2s;
+      overflow: hidden; /* 隐藏滚动条 */
+      box-sizing: border-box; /* 计算高度更稳 */
+      font-family: Consolas, "Microsoft Yahei", monospace;
     }
     textarea:focus { border-color: #007bff; background-color: #f0f8ff; outline: none; }
-    .buttons { margin-top: 10px; display: flex; gap: 8px; }
+    .buttons { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
     button {
       padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; color: #fff; background: #007bff;
     }
@@ -26,7 +32,8 @@
     button:hover { filter: brightness(0.95); }
     pre {
       background: #222; color: #0f0; padding: 15px; border-radius: 8px;
-      white-space: pre-wrap; min-height: 180px; font-size: 14px; line-height: 1.4; overflow: auto;
+      white-space: pre-wrap; word-break: break-word; /* 确保长行不撑爆 */
+      min-height: 180px; font-size: 14px; line-height: 1.4; overflow: auto;
       font-family: Consolas, "Microsoft Yahei", monospace;
       margin-top: 10px;
     }
@@ -35,7 +42,7 @@
 </head>
 <body>
   <h2>📘 Markdown 层级生成器（顺序构建版·可编辑行）<span class="badge">支持同一行实时编辑 + 自动保存</span></h2>
-  <div class="hint">规则：每个输入框一行一个条目；只在“末尾追加”新行会新增节点；同一行后续编辑会实时更新文本。支持自动保存，刷新后可恢复。</div>
+  <div class="hint">规则：每个输入框一行一个条目；只在"末尾追加"新行会新增节点；同一行后续编辑会实时更新文本。支持自动保存，刷新后可恢复。</div>
 
   <div class="container">
     <div class="box">
@@ -83,6 +90,15 @@
       4: document.getElementById('lvl4'),
     };
 
+    // --- 自适应高度：单独的即时（无去抖）处理，仅负责高度 ---
+    function autoResize(textarea) {
+      textarea.style.height = 'auto';               // 先清零再量
+      textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
+    // 初始化时调整所有 textarea 的高度
+    Object.values(areas).forEach(ta => autoResize(ta));
+
     function makeId(level){
       return `${level}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
@@ -106,6 +122,10 @@
 
     function onInput(level) {
       const ta = areas[level];
+
+      // 先即时拉高
+      autoResize(ta);
+
       const newLines = ta.value.replace(/\r/g,'').split('\n').filter(s => s !== '');
       const cur = linesByLevel[level];
 
@@ -132,7 +152,7 @@
         cur.length = newLines.length;
       }
 
-      // 追加新行
+      // 追加新行（只在末尾追加才视为新增）
       if (newLines.length > cur.length) {
         const added = newLines.slice(cur.length);
         added.forEach(text => {
@@ -156,7 +176,9 @@
       };
     }
 
+    // 绑定两个监听：一个即时拉高（不去抖），一个数据更新（去抖）
     [1,2,3,4].forEach(level => {
+      areas[level].addEventListener('input', () => autoResize(areas[level]));
       areas[level].addEventListener('input', debounce(() => onInput(level), 50));
     });
 
@@ -173,6 +195,7 @@
         }
         delete store[id];
         areas[level].value = linesByLevel[level].map(x => x.text).join('\n');
+        autoResize(areas[level]); // 调整高度
       }
       render();
     });
@@ -183,15 +206,37 @@
       eventOrder = [];
       linesByLevel = { 1: [], 2: [], 3: [], 4: [] };
       store = Object.create(null);
-      Object.values(areas).forEach(ta => ta.value = '');
+      Object.values(areas).forEach(ta => {
+        ta.value = '';
+        autoResize(ta); // 重置后调整高度
+      });
       localStorage.removeItem("mdGeneratorData");
       render();
     });
 
-    // 复制
-    document.getElementById('copyBtn').addEventListener('click', () => {
+    // 复制（带回退）
+    document.getElementById('copyBtn').addEventListener('click', async () => {
       const text = document.getElementById('output').textContent;
-      navigator.clipboard.writeText(text).then(() => alert('✅ 已复制到剪贴板！'));
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          // 回退：临时 textarea + execCommand
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        alert('✅ 已复制到剪贴板！');
+      } catch (e) {
+        console.error('复制失败：', e);
+        alert('❌ 复制失败，请手动复制。');
+      }
     });
 
     // 刷新提醒
@@ -224,7 +269,10 @@
         store = data.store || Object.create(null);
         linesByLevel = data.linesByLevel || {1:[],2:[],3:[],4:[]};
         Object.entries(data.textareas || {}).forEach(([k,v]) => {
-          if (areas[k]) areas[k].value = v;
+          if (areas[k]) {
+            areas[k].value = v;
+            autoResize(areas[k]); // 恢复后调整高度
+          }
         });
       } catch(e) {
         console.warn("恢复失败:", e);
