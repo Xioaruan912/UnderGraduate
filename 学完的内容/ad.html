@@ -1,28 +1,27 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta charset="UTF-8">
   <meta http-equiv="Content-Language" content="zh-cn">
-  <title>Markdown 层级生成器（顺序构建版·可编辑行）</title>
+  <title>多功能Markdown生成器</title>
   <style>
     body { font-family: "Microsoft Yahei", Consolas, monospace; margin: 20px; background: #fafafa; color: #333; }
     h2 { color: #444; margin-bottom: 8px; }
     .hint { margin: 6px 0 14px; color: #666; font-size: 13px; }
-    .container { display: flex; gap: 10px; align-items: flex-start; } /* 关键：不把列拉到同高 */
+    .container { display: flex; gap: 10px; align-items: flex-start; }
     .box { flex: 1 1 0; display: flex; flex-direction: column; }
     label { font-weight: bold; margin-bottom: 5px; }
-    textarea {
-      /* 关键：不要 flex:1，让高度由内容决定 */
+    textarea, select, input {
       display: block; width: 100%;
       padding: 10px; border: 2px solid #ccc; border-radius: 8px;
-      resize: none; height: auto; min-height: 120px;
+      resize: none; height: auto; min-height: 40px;
       transition: border-color 0.2s, background-color 0.2s;
-      overflow: hidden; /* 隐藏滚动条 */
-      box-sizing: border-box; /* 计算高度更稳 */
+      overflow: hidden;
+      box-sizing: border-box;
       font-family: Consolas, "Microsoft Yahei", monospace;
     }
-    textarea:focus { border-color: #007bff; background-color: #f0f8ff; outline: none; }
+    textarea:focus, select:focus, input:focus { border-color: #007bff; background-color: #f0f8ff; outline: none; }
     .buttons { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
     button {
       padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; color: #fff; background: #007bff;
@@ -32,12 +31,15 @@
     button:hover { filter: brightness(0.95); }
     pre {
       background: #222; color: #0f0; padding: 15px; border-radius: 8px;
-      white-space: pre-wrap; word-break: break-word; /* 确保长行不撑爆 */
+      white-space: pre-wrap; word-break: break-word;
       min-height: 180px; font-size: 14px; line-height: 1.4; overflow: auto;
       font-family: Consolas, "Microsoft Yahei", monospace;
       margin-top: 10px;
     }
     .badge { display:inline-block; background:#eee; color:#333; padding:2px 6px; border-radius:6px; font-size:12px; margin-left:6px;}
+    .module { margin-bottom: 40px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
+    .preview { background: #fff; border: 1px solid #ddd; padding: 15px; margin-top: 20px; border-radius: 8px; }
+    .preview pre { background: #f8f9fa; color: #333; border: 1px solid #eee; }
   </style>
 </head>
 <body>
@@ -69,10 +71,43 @@
     <button id="copyBtn">📋 复制结果</button>
   </div>
 
-  <h3>输出结果：</h3>
+  <h3>层级生成器输出结果：</h3>
   <pre id="output"></pre>
 
+  <!-- 新增的折叠列表生成器模块 -->
+  <div class="module">
+    <h2>📋 折叠列表生成器</h2>
+    <div class="hint">输入每个列表项内容，选择颜色，生成可折叠的Markdown列表。</div>
+    
+    <div class="form-group">
+      <label for="listItems">请输入每个&lt;li&gt;项的内容（每行一个）：</label>
+      <textarea id="listItems" rows="6" placeholder="输入每个<li>项的内容，按回车分隔..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label for="colorSelect">选择颜色：</label>
+      <select id="colorSelect">
+        <option value="orange">橙色</option>
+        <option value="green">绿色</option>
+        <option value="blue">蓝色</option>
+        <option value="red">红色</option>
+        <option value="purple">紫色</option>
+      </select>
+    </div>
+
+    <div class="buttons">
+      <button onclick="generateMarkdown()">生成折叠列表</button>
+      <button onclick="copyMarkdownList()">📋 复制折叠列表</button>
+    </div>
+
+    <div class="preview">
+      <h3>折叠列表Markdown源代码：</h3>
+      <pre id="markdownOutput"></pre>
+    </div>
+  </div>
+
   <script>
+    // 层级生成器代码
     const header =
 `🟨 不够熟悉  ✅ 熟悉  ❌ 忘记  🟨-✅ 忘记快到记得了
 
@@ -90,13 +125,12 @@
       4: document.getElementById('lvl4'),
     };
 
-    // --- 自适应高度：单独的即时（无去抖）处理，仅负责高度 ---
+    // 自适应高度
     function autoResize(textarea) {
-      textarea.style.height = 'auto';               // 先清零再量
+      textarea.style.height = 'auto';
       textarea.style.height = textarea.scrollHeight + 'px';
     }
 
-    // 初始化时调整所有 textarea 的高度
     Object.values(areas).forEach(ta => autoResize(ta));
 
     function makeId(level){
@@ -116,14 +150,11 @@
         else if (level === 4) out += `      - #### ${text} ❌\n`;
       });
       document.getElementById('output').textContent = out;
-
       saveToLocal();
     }
 
     function onInput(level) {
       const ta = areas[level];
-
-      // 先即时拉高
       autoResize(ta);
 
       const newLines = ta.value.replace(/\r/g,'').split('\n').filter(s => s !== '');
@@ -131,7 +162,6 @@
 
       const minLen = Math.min(cur.length, newLines.length);
 
-      // 更新已有行
       for (let i=0; i<minLen; i++) {
         const newText = newLines[i];
         if (cur[i].text !== newText) {
@@ -141,7 +171,6 @@
         }
       }
 
-      // 删除多余行
       if (newLines.length < cur.length) {
         const removed = cur.slice(newLines.length);
         removed.forEach(item => {
@@ -152,7 +181,6 @@
         cur.length = newLines.length;
       }
 
-      // 追加新行（只在末尾追加才视为新增）
       if (newLines.length > cur.length) {
         const added = newLines.slice(cur.length);
         added.forEach(text => {
@@ -167,7 +195,6 @@
       render();
     }
 
-    // 去抖，避免 iPad 双输入
     function debounce(fn, delay=50) {
       let t;
       return (...args) => {
@@ -176,13 +203,11 @@
       };
     }
 
-    // 绑定两个监听：一个即时拉高（不去抖），一个数据更新（去抖）
     [1,2,3,4].forEach(level => {
       areas[level].addEventListener('input', () => autoResize(areas[level]));
       areas[level].addEventListener('input', debounce(() => onInput(level), 50));
     });
 
-    // 撤销一步
     document.getElementById('undoBtn').addEventListener('click', () => {
       if (!eventOrder.length) return;
       const id = eventOrder.pop();
@@ -195,12 +220,11 @@
         }
         delete store[id];
         areas[level].value = linesByLevel[level].map(x => x.text).join('\n');
-        autoResize(areas[level]); // 调整高度
+        autoResize(areas[level]);
       }
       render();
     });
 
-    // 重置
     document.getElementById('resetBtn').addEventListener('click', () => {
       if (!confirm("⚠️ 高危操作：此操作会清空所有输入和结果，确定要继续吗？")) return;
       eventOrder = [];
@@ -208,20 +232,18 @@
       store = Object.create(null);
       Object.values(areas).forEach(ta => {
         ta.value = '';
-        autoResize(ta); // 重置后调整高度
+        autoResize(ta);
       });
       localStorage.removeItem("mdGeneratorData");
       render();
     });
 
-    // 复制（带回退）
     document.getElementById('copyBtn').addEventListener('click', async () => {
       const text = document.getElementById('output').textContent;
       try {
         if (navigator.clipboard && window.isSecureContext) {
           await navigator.clipboard.writeText(text);
         } else {
-          // 回退：临时 textarea + execCommand
           const ta = document.createElement('textarea');
           ta.value = text;
           ta.setAttribute('readonly', '');
@@ -239,7 +261,6 @@
       }
     });
 
-    // 刷新提醒
     window.addEventListener('beforeunload', (e) => {
       const hasContent = eventOrder.length > 0 || Object.values(areas).some(ta => ta.value.trim() !== '');
       if (hasContent) {
@@ -248,7 +269,6 @@
       }
     });
 
-    // 保存到 localStorage
     function saveToLocal() {
       const data = {
         eventOrder,
@@ -259,7 +279,6 @@
       localStorage.setItem("mdGeneratorData", JSON.stringify(data));
     }
 
-    // 从 localStorage 恢复
     function loadFromLocal() {
       const raw = localStorage.getItem("mdGeneratorData");
       if (!raw) return;
@@ -271,7 +290,7 @@
         Object.entries(data.textareas || {}).forEach(([k,v]) => {
           if (areas[k]) {
             areas[k].value = v;
-            autoResize(areas[k]); // 恢复后调整高度
+            autoResize(areas[k]);
           }
         });
       } catch(e) {
@@ -281,6 +300,53 @@
 
     loadFromLocal();
     render();
+
+    // 折叠列表生成器功能
+    function generateMarkdown() {
+      const listItems = document.getElementById('listItems').value.split('\n').filter(item => item.trim() !== "");
+      const color = document.getElementById('colorSelect').value;
+
+      let markdown = `<details>
+  <summary style="font-weight: bold; color: #007bff;">展开答案</summary>
+  <ul>`;
+
+      listItems.forEach(item => {
+        markdown += `    <li style="color: ${color};">${item}</li>\n`;
+      });
+
+      markdown += `  </ul>
+</details>`;
+
+      document.getElementById('markdownOutput').textContent = markdown;
+    }
+
+    function copyMarkdownList() {
+      const markdownText = document.getElementById('markdownOutput').textContent;
+      if (!markdownText.trim()) {
+        alert("请先生成折叠列表内容！");
+        return;
+      }
+      
+      navigator.clipboard.writeText(markdownText)
+        .then(() => alert("折叠列表已复制到剪贴板！"))
+        .catch(err => {
+          // 回退方案
+          const textarea = document.createElement('textarea');
+          textarea.value = markdownText;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+          alert("折叠列表已复制到剪贴板！");
+        });
+    }
+
+    // 为折叠列表生成器的文本区域添加自适应高度
+    const listItemsArea = document.getElementById('listItems');
+    listItemsArea.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = this.scrollHeight + 'px';
+    });
   </script>
 </body>
 </html>
