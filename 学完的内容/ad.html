@@ -1,118 +1,463 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Language" content="zh-cn">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>多功能Markdown生成器</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body { font-family: "Microsoft Yahei", Consolas, monospace; margin: 20px; background: #fafafa; color: #333; }
-    h2 { color: #444; margin-bottom: 8px; }
-    .hint { margin: 6px 0 14px; color: #666; font-size: 13px; }
-    .container { display: flex; gap: 10px; align-items: flex-start; }
-    .box { flex: 1 1 0; display: flex; flex-direction: column; }
-    label { font-weight: bold; margin-bottom: 5px; }
-    textarea, select, input {
-      display: block; width: 100%;
-      padding: 10px; border: 2px solid #ccc; border-radius: 8px;
-      resize: none; height: auto; min-height: 40px;
-      transition: border-color 0.2s, background-color 0.2s;
-      overflow: hidden;
+    :root {
+      --primary: #4361ee;
+      --secondary: #3f37c9;
+      --success: #4cc9f0;
+      --danger: #f72585;
+      --warning: #f8961e;
+      --light: #f8f9fa;
+      --dark: #212529;
+      --gray: #6c757d;
+      --card-bg: #ffffff;
+      --border-color: #e0e0e0;
+      --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      --radius: 10px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
       box-sizing: border-box;
-      font-family: Consolas, "Microsoft Yahei", monospace;
     }
-    textarea:focus, select:focus, input:focus { border-color: #007bff; background-color: #f0f8ff; outline: none; }
-    .buttons { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    body {
+      font-family: 'Segoe UI', 'Microsoft Yahei', system-ui, sans-serif;
+      line-height: 1.6;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      color: var(--dark);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    h1 {
+      color: var(--primary);
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+    }
+
+    .subtitle {
+      color: var(--gray);
+      font-size: 1.1rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .badge {
+      background: var(--primary);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .modules-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+    }
+
+    @media (max-width: 1100px) {
+      .modules-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .module {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 25px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .module:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .module-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .module-icon {
+      width: 50px;
+      height: 50px;
+      background: var(--primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 15px;
+      color: white;
+      font-size: 1.5rem;
+    }
+
+    .module-title {
+      font-size: 1.5rem;
+      color: var(--primary);
+      margin-bottom: 5px;
+    }
+
+    .module-description {
+      color: var(--gray);
+      font-size: 0.9rem;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--dark);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    textarea, select {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius);
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.95rem;
+      transition: all 0.3s;
+      resize: vertical;
+    }
+
+    textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+    }
+
+    .levels-container {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .levels-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .level-box {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .level-label {
+      background: var(--primary);
+      color: white;
+      padding: 8px 12px;
+      border-radius: var(--radius) var(--radius) 0 0;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    .level-textarea {
+      border-radius: 0 0 var(--radius) var(--radius);
+      min-height: 120px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
     button {
-      padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; color: #fff; background: #007bff;
+      padding: 10px 20px;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s;
     }
-    button.secondary { background: #6c757d; }
-    button.warn { background: #dc3545; }
-    button:hover { filter: brightness(0.95); }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: var(--gray);
+      color: white;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-primary:hover {
+      background: var(--secondary);
+    }
+
+    .output-section {
+      margin-top: 25px;
+    }
+
+    .output-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .output-title {
+      font-size: 1.2rem;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
     pre {
-      background: #222; color: #0f0; padding: 15px; border-radius: 8px;
-      white-space: pre-wrap; word-break: break-word;
-      min-height: 180px; font-size: 14px; line-height: 1.4; overflow: auto;
-      font-family: Consolas, "Microsoft Yahei", monospace;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      border-radius: var(--radius);
+      overflow-x: auto;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      min-height: 200px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 25px;
+      border-radius: var(--radius);
+      background: var(--success);
+      color: white;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 1000;
+      transform: translateX(150%);
+      transition: transform 0.3s ease;
+    }
+
+    .notification.show {
+      transform: translateX(0);
+    }
+
+    .color-options {
+      display: flex;
+      gap: 10px;
       margin-top: 10px;
     }
-    .badge { display:inline-block; background:#eee; color:#333; padding:2px 6px; border-radius:6px; font-size:12px; margin-left:6px;}
-    .module { margin-bottom: 40px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
-    .preview { background: #fff; border: 1px solid #ddd; padding: 15px; margin-top: 20px; border-radius: 8px; }
-    .preview pre { background: #f8f9fa; color: #333; border: 1px solid #eee; }
+
+    .color-option {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: all 0.3s;
+    }
+
+    .color-option.active {
+      border-color: var(--dark);
+      transform: scale(1.1);
+    }
+
+    .color-orange { background-color: orange; }
+    .color-green { background-color: green; }
+    .color-blue { background-color: blue; }
+    .color-red { background-color: red; }
+    .color-purple { background-color: purple; }
+
+    footer {
+      text-align: center;
+      margin-top: 50px;
+      padding: 20px;
+      color: var(--gray);
+      font-size: 0.9rem;
+    }
+
+    .hint {
+      font-size: 0.85rem;
+      color: var(--gray);
+      margin-top: 5px;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
-  <h2>📘 Markdown 层级生成器（顺序构建版·可编辑行）<span class="badge">支持同一行实时编辑 + 自动保存</span></h2>
-  <div class="hint">规则：每个输入框一行一个条目；只在"末尾追加"新行会新增节点；同一行后续编辑会实时更新文本。支持自动保存，刷新后可恢复。</div>
-
   <div class="container">
-    <div class="box">
-      <label>- # 一级</label>
-      <textarea id="lvl1" placeholder="例：齐次线性方程组"></textarea>
+    <header>
+      <h1><i class="fas fa-code"></i> 多功能Markdown生成器</h1>
+      <p class="subtitle">一站式工具，帮助您快速生成结构化的Markdown内容和可折叠列表</p>
+    </header>
+
+    <div class="modules-container">
+      <!-- 层级生成器模块 -->
+      <div class="module">
+        <div class="module-header">
+          <div class="module-icon">
+            <i class="fas fa-layer-group"></i>
+          </div>
+          <div>
+            <h2 class="module-title">Markdown层级生成器</h2>
+            <p class="module-description">创建结构化的层级内容，支持实时编辑和自动保存</p>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="lvl1"><i class="fas fa-hashtag"></i> 一级标题</label>
+          <textarea id="lvl1" placeholder="例：齐次线性方程组" class="level-textarea"></textarea>
+        </div>
+
+        <div class="levels-container">
+          <div class="level-box">
+            <div class="level-label">二级标题</div>
+            <textarea id="lvl2" placeholder="例：向量形式&#10;有解条件" class="level-textarea"></textarea>
+          </div>
+          <div class="level-box">
+            <div class="level-label">三级标题</div>
+            <textarea id="lvl3" placeholder="例：唯一零解&#10;非零解" class="level-textarea"></textarea>
+          </div>
+          <div class="level-box">
+            <div class="level-label">四级标题</div>
+            <textarea id="lvl4" placeholder="例：某个子结论" class="level-textarea"></textarea>
+          </div>
+        </div>
+
+        <div class="buttons">
+          <button class="btn-secondary" id="undoBtn"><i class="fas fa-undo"></i> 撤销一步</button>
+          <button class="btn-danger" id="resetBtn"><i class="fas fa-trash"></i> 重置</button>
+          <button class="btn-primary" id="copyBtn"><i class="fas fa-copy"></i> 复制结果</button>
+        </div>
+
+        <div class="output-section">
+          <div class="output-header">
+            <h3 class="output-title"><i class="fas fa-code"></i> 层级生成器输出结果</h3>
+          </div>
+          <pre id="output"></pre>
+        </div>
+      </div>
+
+      <!-- 折叠列表生成器模块 -->
+      <div class="module">
+        <div class="module-header">
+          <div class="module-icon">
+            <i class="fas fa-list-ul"></i>
+          </div>
+          <div>
+            <h2 class="module-title">折叠列表生成器</h2>
+            <p class="module-description">创建可折叠的Markdown列表，支持自定义颜色</p>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="listItems"><i class="fas fa-list"></i> 列表项内容（每行一项）</label>
+          <textarea id="listItems" rows="6" placeholder="输入每个列表项的内容，按回车分隔..."></textarea>
+          <p class="hint">每行内容将作为一个列表项</p>
+        </div>
+
+        <div class="input-group">
+          <label><i class="fas fa-palette"></i> 选择颜色</label>
+          <select id="colorSelect">
+            <option value="orange">橙色</option>
+            <option value="green">绿色</option>
+            <option value="blue" selected>蓝色</option>
+            <option value="red">红色</option>
+            <option value="purple">紫色</option>
+          </select>
+          
+          <div class="color-options">
+            <div class="color-option color-orange active" data-color="orange"></div>
+            <div class="color-option color-green" data-color="green"></div>
+            <div class="color-option color-blue" data-color="blue"></div>
+            <div class="color-option color-red" data-color="red"></div>
+            <div class="color-option color-purple" data-color="purple"></div>
+          </div>
+        </div>
+
+        <div class="buttons">
+          <button class="btn-primary" onclick="generateMarkdown()"><i class="fas fa-magic"></i> 生成折叠列表</button>
+          <button class="btn-success" onclick="copyMarkdownList()"><i class="fas fa-copy"></i> 复制折叠列表</button>
+        </div>
+
+        <div class="output-section">
+          <div class="output-header">
+            <h3 class="output-title"><i class="fas fa-code"></i> 折叠列表Markdown源代码</h3>
+          </div>
+          <pre id="markdownOutput"></pre>
+        </div>
+      </div>
     </div>
-    <div class="box">
-      <label>- ## 二级</label>
-      <textarea id="lvl2" placeholder="例：向量形式&#10;有解条件"></textarea>
-    </div>
-    <div class="box">
-      <label>- ### 三级</label>
-      <textarea id="lvl3" placeholder="例：唯一零解&#10;非零解"></textarea>
-    </div>
-    <div class="box">
-      <label>- #### 四级</label>
-      <textarea id="lvl4" placeholder="例：某个子结论"></textarea>
-    </div>
+
+    <footer>
+      <p>© 2023 多功能Markdown生成器 | 设计精美，功能强大</p>
+    </footer>
   </div>
 
-  <div class="buttons">
-    <button class="secondary" id="undoBtn">↩ 撤销一步</button>
-    <button class="warn" id="resetBtn">🗑 重置</button>
-    <button id="copyBtn">📋 复制结果</button>
-  </div>
-
-  <h3>层级生成器输出结果：</h3>
-  <pre id="output"></pre>
-
-  <!-- 新增的折叠列表生成器模块 -->
-  <div class="module">
-    <h2>📋 折叠列表生成器</h2>
-    <div class="hint">输入每个列表项内容，选择颜色，生成可折叠的Markdown列表。</div>
-    
-    <div class="form-group">
-      <label for="listItems">请输入每个&lt;li&gt;项的内容（每行一个）：</label>
-      <textarea id="listItems" rows="6" placeholder="输入每个<li>项的内容，按回车分隔..."></textarea>
-    </div>
-
-    <div class="form-group">
-      <label for="colorSelect">选择颜色：</label>
-      <select id="colorSelect">
-        <option value="orange">橙色</option>
-        <option value="green">绿色</option>
-        <option value="blue">蓝色</option>
-        <option value="red">红色</option>
-        <option value="purple">紫色</option>
-      </select>
-    </div>
-
-    <div class="buttons">
-      <button onclick="generateMarkdown()">生成折叠列表</button>
-      <button onclick="copyMarkdownList()">📋 复制折叠列表</button>
-    </div>
-
-    <div class="preview">
-      <h3>折叠列表Markdown源代码：</h3>
-      <pre id="markdownOutput"></pre>
-    </div>
+  <div class="notification" id="notification">
+    <i class="fas fa-check-circle"></i>
+    <span id="notificationText">操作成功！</span>
   </div>
 
   <script>
     // 层级生成器代码
-    const header =
-`🟨 不够熟悉  ✅ 熟悉  ❌ 忘记  🟨-✅ 忘记快到记得了
-
-## 大问题
-`;
+    const header = `🟨 不够熟悉  ✅ 熟悉  ❌ 忘记  🟨-✅ 忘记快到记得了\n\n## 大问题\n`;
 
     let eventOrder = [];
     let store = Object.create(null);
@@ -208,6 +553,7 @@
       areas[level].addEventListener('input', debounce(() => onInput(level), 50));
     });
 
+    // 撤销一步
     document.getElementById('undoBtn').addEventListener('click', () => {
       if (!eventOrder.length) return;
       const id = eventOrder.pop();
@@ -223,8 +569,10 @@
         autoResize(areas[level]);
       }
       render();
+      showNotification('已撤销最后一步操作');
     });
 
+    // 重置
     document.getElementById('resetBtn').addEventListener('click', () => {
       if (!confirm("⚠️ 高危操作：此操作会清空所有输入和结果，确定要继续吗？")) return;
       eventOrder = [];
@@ -236,8 +584,10 @@
       });
       localStorage.removeItem("mdGeneratorData");
       render();
+      showNotification('已重置所有内容');
     });
 
+    // 复制
     document.getElementById('copyBtn').addEventListener('click', async () => {
       const text = document.getElementById('output').textContent;
       try {
@@ -254,13 +604,14 @@
           document.execCommand('copy');
           document.body.removeChild(ta);
         }
-        alert('✅ 已复制到剪贴板！');
+        showNotification('层级内容已复制到剪贴板！');
       } catch (e) {
         console.error('复制失败：', e);
-        alert('❌ 复制失败，请手动复制。');
+        showNotification('复制失败，请手动复制。', 'error');
       }
     });
 
+    // 刷新提醒
     window.addEventListener('beforeunload', (e) => {
       const hasContent = eventOrder.length > 0 || Object.values(areas).some(ta => ta.value.trim() !== '');
       if (hasContent) {
@@ -269,6 +620,7 @@
       }
     });
 
+    // 保存到 localStorage
     function saveToLocal() {
       const data = {
         eventOrder,
@@ -279,6 +631,7 @@
       localStorage.setItem("mdGeneratorData", JSON.stringify(data));
     }
 
+    // 从 localStorage 恢复
     function loadFromLocal() {
       const raw = localStorage.getItem("mdGeneratorData");
       if (!raw) return;
@@ -306,6 +659,11 @@
       const listItems = document.getElementById('listItems').value.split('\n').filter(item => item.trim() !== "");
       const color = document.getElementById('colorSelect').value;
 
+      if (listItems.length === 0) {
+        showNotification('请输入至少一个列表项', 'error');
+        return;
+      }
+
       let markdown = `<details>
   <summary style="font-weight: bold; color: #007bff;">展开答案</summary>
   <ul>`;
@@ -318,17 +676,18 @@
 </details>`;
 
       document.getElementById('markdownOutput').textContent = markdown;
+      showNotification('折叠列表已生成！');
     }
 
     function copyMarkdownList() {
       const markdownText = document.getElementById('markdownOutput').textContent;
       if (!markdownText.trim()) {
-        alert("请先生成折叠列表内容！");
+        showNotification('请先生成折叠列表内容！', 'error');
         return;
       }
       
       navigator.clipboard.writeText(markdownText)
-        .then(() => alert("折叠列表已复制到剪贴板！"))
+        .then(() => showNotification('折叠列表已复制到剪贴板！'))
         .catch(err => {
           // 回退方案
           const textarea = document.createElement('textarea');
@@ -337,7 +696,7 @@
           textarea.select();
           document.execCommand('copy');
           document.body.removeChild(textarea);
-          alert("折叠列表已复制到剪贴板！");
+          showNotification('折叠列表已复制到剪贴板！');
         });
     }
 
@@ -347,6 +706,65 @@
       this.style.height = 'auto';
       this.style.height = this.scrollHeight + 'px';
     });
+
+    // 颜色选择器交互
+    const colorOptions = document.querySelectorAll('.color-option');
+    const colorSelect = document.getElementById('colorSelect');
+    
+    colorOptions.forEach(option => {
+      option.addEventListener('click', function() {
+        const color = this.getAttribute('data-color');
+        
+        // 更新选择框
+        colorSelect.value = color;
+        
+        // 更新活动状态
+        colorOptions.forEach(opt => opt.classList.remove('active'));
+        this.classList.add('active');
+        
+        // 如果已经有生成的内容，重新生成
+        if (document.getElementById('markdownOutput').textContent.trim()) {
+          generateMarkdown();
+        }
+      });
+    });
+    
+    // 当选择框变化时更新颜色选项
+    colorSelect.addEventListener('change', function() {
+      const color = this.value;
+      colorOptions.forEach(opt => {
+        opt.classList.remove('active');
+        if (opt.getAttribute('data-color') === color) {
+          opt.classList.add('active');
+        }
+      });
+      
+      // 如果已经有生成的内容，重新生成
+      if (document.getElementById('markdownOutput').textContent.trim()) {
+        generateMarkdown();
+      }
+    });
+
+    // 通知功能
+    function showNotification(message, type = 'success') {
+      const notification = document.getElementById('notification');
+      const notificationText = document.getElementById('notificationText');
+      
+      notificationText.textContent = message;
+      
+      // 设置通知颜色
+      if (type === 'error') {
+        notification.style.background = 'var(--danger)';
+      } else {
+        notification.style.background = 'var(--success)';
+      }
+      
+      notification.classList.add('show');
+      
+      setTimeout(() => {
+        notification.classList.remove('show');
+      }, 3000);
+    }
   </script>
 </body>
 </html>
