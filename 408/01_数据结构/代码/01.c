@@ -17,6 +17,7 @@ typedef struct Sqlist
 struct Sqlist init_SQ()
 {
     Sqlist Q;
+    Q.length = 0;
     int num = 999;
     for (int i = 0; i <= 10; i++)
     {
@@ -28,14 +29,17 @@ struct Sqlist init_SQ()
 
 void print_Q(Sqlist Q)
 {
-    for (int i = 0; i <= Q.length; i++)
+    printf("Q'len is %d\n", Q.length);
+    for (int i = 0; i < Q.length; i++)
     {
-        printf("No.%d is %d", i, Q.data[i]);
+        printf("No.%d is %d\n", i, Q.data[i]);
     }
 }
 
 int main()
 {
+    // 初始化 顺序表
     Sqlist Q = init_SQ();
-    print_Q(Q)
+    // 打印初始化的顺序表内容
+    print_Q(Q);
 }
