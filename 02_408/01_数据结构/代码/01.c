@@ -21,7 +21,7 @@ struct Sqlist init_SQ()
     int num = 999;
     for (int i = 0; i <= 10; i++)
     {
-        Q.data[i] = 999 + i;
+        Q.data[Q.length] = 999 + i;
         Q.length++;
     }
     return Q;
@@ -36,10 +36,28 @@ void print_Q(Sqlist Q)
     }
 }
 
+// 在第k个位置插入元素i
+int Insert_i_to_k(int k, Elemtype a, Sqlist *Q)
+{
+    // 判断非法 这里大于就错误 因为等于的话还是可以后移 插入 小于0也报错
+    if (k > Q->length && k < 0)
+        return 0;
+    // 把k之后的数据全部向后移动
+    for (int i = Q->length; i >= k; i--)
+    {
+        Q->data[i + 1] = Q->data[i];
+    }
+    Q->data[k] = a;
+    Q->length++;
+    return 1;
+}
+
 int main()
 {
     // 初始化 顺序表
     Sqlist Q = init_SQ();
     // 打印初始化的顺序表内容
+    print_Q(Q);
+    Insert_i_to_k(2, 100000000, &Q);
     print_Q(Q);
 }
